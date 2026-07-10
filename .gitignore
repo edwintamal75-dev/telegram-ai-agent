@@ -1,0 +1,11 @@
+.env
+.venv/
+.venv-codex/
+.packages/
+.pip-cache/
+.pip-cache2/
+.tmp/
+.tmp2/
+data/
+__pycache__/
+*.pyc
