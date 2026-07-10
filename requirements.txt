@@ -1,0 +1,2 @@
+# Tidak wajib untuk versi awal ini.
+# Proyek memakai standard library Python agar bisa jalan tanpa pip install.
