@@ -32,7 +32,7 @@ class TelegramAgentBot:
         self, content: str, photo_url: str | None = None, destination: str = "telegram"
     ) -> None:
         if destination in {"x", "all"}:
-            x_url = await asyncio.to_thread(self.x_client.post_text, content)
+            x_url = await asyncio.to_thread(self.x_client.post_text, content, photo_url)
             if destination == "x":
                 print(f"Posting X terkirim: {x_url}")
                 return
@@ -81,7 +81,7 @@ class TelegramAgentBot:
             await self._send_message(
                 chat_id,
                 f"{self.settings.app_name} aktif.\n"
-                "Gunakan /caption, /post, /xpost, /postall, /photo, /pending, /approve, /schedule, atau /cancel.",
+                "Gunakan /caption, /post, /xpost, /xphoto, /postall, /postallphoto, /photo, /pending, /approve, /schedule, atau /cancel.",
             )
         elif text.startswith("/caption"):
             topic = self._command_args(text)
@@ -89,10 +89,18 @@ class TelegramAgentBot:
                 await self._send_message(chat_id, "Tulis topiknya. Contoh: /caption big match malam ini")
                 return
             await self._send_message(chat_id, self.ai_writer.caption(topic))
+        elif text.startswith("/postallphoto"):
+            if not await self._is_admin(chat_id, user_id):
+                return
+            await self._create_photo_post(chat_id, user_id, self._command_args(text), "all")
         elif text.startswith("/postall"):
             if not await self._is_admin(chat_id, user_id):
                 return
             await self._create_text_post(chat_id, user_id, self._command_args(text), "all")
+        elif text.startswith("/xphoto"):
+            if not await self._is_admin(chat_id, user_id):
+                return
+            await self._create_photo_post(chat_id, user_id, self._command_args(text), "x")
         elif text.startswith("/xpost"):
             if not await self._is_admin(chat_id, user_id):
                 return
@@ -104,7 +112,7 @@ class TelegramAgentBot:
         elif text.startswith("/photo"):
             if not await self._is_admin(chat_id, user_id):
                 return
-            await self._create_photo_post(chat_id, user_id, self._command_args(text))
+            await self._create_photo_post(chat_id, user_id, self._command_args(text), "telegram")
         elif text.startswith("/pending"):
             if not await self._is_admin(chat_id, user_id):
                 return
@@ -198,25 +206,28 @@ class TelegramAgentBot:
         label = {"telegram": "Telegram", "x": "X", "all": "Telegram + X"}[destination]
         await self._send_message(chat_id, f"Draft #{post_id} dibuat untuk {label}. Kirim /approve {post_id}.")
 
-    async def _create_photo_post(self, chat_id: int, user_id: int | None, raw: str) -> None:
+    async def _create_photo_post(
+        self, chat_id: int, user_id: int | None, raw: str, destination: str
+    ) -> None:
         try:
             photo_url, caption = raw.split(" ", 1)
         except ValueError:
             await self._send_message(
                 chat_id,
                 "Format: /photo URL_GAMBAR caption\n"
-                "Contoh: /photo https://example.com/bola.jpg Big match malam ini.",
+                "Contoh: /xphoto https://example.com/bola.jpg Big match malam ini.",
             )
             return
         if not photo_url.startswith(("http://", "https://")):
             await self._send_message(chat_id, "URL gambar harus diawali http:// atau https://")
             return
-        post_id = self._store_memory_draft(caption, photo_url, "telegram")
+        post_id = self._store_memory_draft(caption, photo_url, destination)
         try:
-            self.database.create_post(caption, created_by=user_id, photo_url=photo_url)
+            self.database.create_post(caption, created_by=user_id, photo_url=photo_url, destination=destination)
         except Exception as exc:
             print(f"Database warning: {exc}")
-        await self._send_message(chat_id, f"Draft foto #{post_id} dibuat. Kirim /approve {post_id} untuk posting.")
+        label = {"telegram": "Telegram", "x": "X", "all": "Telegram + X"}[destination]
+        await self._send_message(chat_id, f"Draft foto #{post_id} dibuat untuk {label}. Kirim /approve {post_id}.")
 
     async def _schedule(self, chat_id: int, user_id: int | None, raw: str) -> None:
         try:
