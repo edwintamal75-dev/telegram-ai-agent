@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from datetime import datetime, timedelta, timezone
 from urllib import parse, request
 from zoneinfo import ZoneInfo
@@ -152,7 +153,11 @@ class TelegramAgentBot:
         if post is None or post.status not in {"draft", "scheduled"}:
             await self._send_message(chat_id, "Draft tidak ditemukan atau sudah tidak pending.")
             return
-        await self.send_channel_post(post.content, post.photo_url, post.destination)
+        try:
+            await self.send_channel_post(post.content, post.photo_url, post.destination)
+        except Exception as exc:
+            await self._send_message(chat_id, f"Gagal posting draft #{post.id}: {exc}")
+            return
         self.database.mark_posted(post.id)
         await self._send_message(chat_id, f"Draft #{post.id} sudah diposting.")
 
@@ -259,10 +264,8 @@ class TelegramAgentBot:
         args = TelegramAgentBot._command_args(text)
         if not args:
             return None
-        try:
-            return int(args.split()[0])
-        except ValueError:
-            return None
+        match = re.search(r"\d+", args)
+        return int(match.group(0)) if match else None
 
 
 def _timezone(name: str):
