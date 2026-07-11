@@ -14,6 +14,8 @@ class PostDraft:
     scheduled_at: str | None
     created_by: int | None
     created_at: str
+    photo_url: str | None
+    destination: str
 
 
 class Database:
@@ -36,6 +38,24 @@ class Database:
                     status TEXT NOT NULL DEFAULT 'draft',
                     scheduled_at TEXT,
                     created_by INTEGER,
+                    created_at TEXT NOT NULL,
+                    photo_url TEXT,
+                    destination TEXT NOT NULL DEFAULT 'telegram'
+                )
+                """
+            )
+            columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(posts)").fetchall()
+            }
+            if "photo_url" not in columns:
+                connection.execute("ALTER TABLE posts ADD COLUMN photo_url TEXT")
+            if "destination" not in columns:
+                connection.execute("ALTER TABLE posts ADD COLUMN destination TEXT NOT NULL DEFAULT 'telegram'")
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS auto_post_log (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    slot_key TEXT NOT NULL UNIQUE,
                     created_at TEXT NOT NULL
                 )
                 """
@@ -47,13 +67,15 @@ class Database:
         *,
         created_by: int | None = None,
         scheduled_at: datetime | None = None,
+        photo_url: str | None = None,
+        destination: str = "telegram",
     ) -> int:
         status = "scheduled" if scheduled_at else "draft"
         with self.connect() as connection:
             cursor = connection.execute(
                 """
-                INSERT INTO posts (content, status, scheduled_at, created_by, created_at)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO posts (content, status, scheduled_at, created_by, created_at, photo_url, destination)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     content,
@@ -61,6 +83,8 @@ class Database:
                     scheduled_at.isoformat() if scheduled_at else None,
                     created_by,
                     datetime.utcnow().isoformat(),
+                    photo_url,
+                    destination,
                 ),
             )
             return int(cursor.lastrowid)
@@ -102,6 +126,18 @@ class Database:
     def cancel(self, post_id: int) -> None:
         self._set_status(post_id, "cancelled")
 
+    def auto_post_was_sent(self, slot_key: str) -> bool:
+        with self.connect() as connection:
+            row = connection.execute("SELECT 1 FROM auto_post_log WHERE slot_key = ?", (slot_key,)).fetchone()
+        return row is not None
+
+    def mark_auto_post_sent(self, slot_key: str) -> None:
+        with self.connect() as connection:
+            connection.execute(
+                "INSERT OR IGNORE INTO auto_post_log (slot_key, created_at) VALUES (?, ?)",
+                (slot_key, datetime.utcnow().isoformat()),
+            )
+
     def _set_status(self, post_id: int, status: str) -> None:
         with self.connect() as connection:
             connection.execute("UPDATE posts SET status = ? WHERE id = ?", (status, post_id))
@@ -115,5 +151,6 @@ class Database:
             scheduled_at=row["scheduled_at"],
             created_by=row["created_by"],
             created_at=str(row["created_at"]),
+            photo_url=row["photo_url"],
+            destination=str(row["destination"]),
         )
-

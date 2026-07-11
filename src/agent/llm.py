@@ -26,6 +26,17 @@ class AIWriter:
         )
         return self._generate(prompt)
 
+    def daily_post(self, slot: str) -> str:
+        prompt = (
+            "Buat 1 posting channel Telegram sepak bola berbahasa Indonesia untuk Matchday.AI. "
+            "Gaya singkat, tajam, natural, dan memancing interaksi. Jangan mengarang skor aktual. "
+            "Jika menyebut pertandingan, gunakan gaya umum tanpa klaim jadwal live kecuali user memberi datanya. "
+            "Fokus channel: jadwal, big match, transfer, prediksi ringan, dan obrolan fans.\n\n"
+            f"Slot konten: {slot}\n"
+            "Akhiri dengan pertanyaan ringan untuk audiens."
+        )
+        return self._generate(prompt)
+
     def _generate(self, prompt: str) -> str:
         if self.settings.dry_run or not self.settings.openai_ready:
             return f"[DRY RUN] Contoh respons AI untuk: {prompt[:180]}"

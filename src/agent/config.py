@@ -48,6 +48,13 @@ class Settings:
     database_path: Path
     default_timezone: str
     auto_reply_enabled: bool
+    auto_daily_enabled: bool
+    auto_daily_times: tuple[str, ...]
+    x_enabled: bool
+    x_api_key: str
+    x_api_key_secret: str
+    x_access_token: str
+    x_access_token_secret: str
 
     @property
     def openai_ready(self) -> bool:
@@ -56,6 +63,18 @@ class Settings:
     @property
     def telegram_ready(self) -> bool:
         return bool(self.telegram_bot_token)
+
+    @property
+    def x_ready(self) -> bool:
+        return all(
+            (
+                self.x_enabled,
+                self.x_api_key,
+                self.x_api_key_secret,
+                self.x_access_token,
+                self.x_access_token_secret,
+            )
+        )
 
 
 def load_settings() -> Settings:
@@ -71,4 +90,13 @@ def load_settings() -> Settings:
         database_path=Path(os.getenv("DATABASE_PATH", "data/agent.sqlite3")),
         default_timezone=os.getenv("DEFAULT_TIMEZONE", "Asia/Bangkok"),
         auto_reply_enabled=_bool_from_env("AUTO_REPLY_ENABLED", True),
+        auto_daily_enabled=_bool_from_env("AUTO_DAILY_ENABLED", False),
+        auto_daily_times=tuple(
+            item.strip() for item in os.getenv("AUTO_DAILY_TIMES", "08:00,15:00,20:00").split(",") if item.strip()
+        ),
+        x_enabled=_bool_from_env("X_ENABLED", False),
+        x_api_key=os.getenv("X_API_KEY", ""),
+        x_api_key_secret=os.getenv("X_API_KEY_SECRET", ""),
+        x_access_token=os.getenv("X_ACCESS_TOKEN", ""),
+        x_access_token_secret=os.getenv("X_ACCESS_TOKEN_SECRET", ""),
     )
