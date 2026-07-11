@@ -65,7 +65,9 @@ Jika perintah `python` di Windows belum terbaca, pakai path Python langsung:
 - `/caption topik konten` membuat caption dengan AI.
 - `/post isi konten` membuat draft posting.
 - `/xpost isi konten` membuat draft posting ke X.
+- `/xphoto URL_GAMBAR caption` membuat draft posting gambar ke X.
 - `/postall isi konten` membuat draft posting ke Telegram dan X.
+- `/postallphoto URL_GAMBAR caption` membuat draft posting gambar ke Telegram dan X.
 - `/photo URL_GAMBAR caption` membuat draft posting dengan gambar.
 - `/pending` melihat draft yang belum dikirim.
 - `/approve ID` mengirim draft ke channel.
@@ -136,7 +138,9 @@ Perintah:
 
 ```text
 /xpost teks untuk X saja
+/xphoto URL_GAMBAR caption untuk X dengan gambar
 /postall teks untuk Telegram dan X
+/postallphoto URL_GAMBAR caption untuk Telegram dan X dengan gambar
 ```
 
 Setelah draft dibuat, kirim `/approve ID`.
