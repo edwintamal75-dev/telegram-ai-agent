@@ -64,10 +64,31 @@ Jika perintah `python` di Windows belum terbaca, pakai path Python langsung:
 - `/start` menampilkan status bot.
 - `/caption topik konten` membuat caption dengan AI.
 - `/post isi konten` membuat draft posting.
+- `/xpost isi konten` membuat draft posting ke X.
+- `/postall isi konten` membuat draft posting ke Telegram dan X.
+- `/photo URL_GAMBAR caption` membuat draft posting dengan gambar.
 - `/pending` melihat draft yang belum dikirim.
 - `/approve ID` mengirim draft ke channel.
 - `/schedule YYYY-MM-DD HH:MM isi konten` menjadwalkan posting.
+- `/schedulephoto YYYY-MM-DD HH:MM URL_GAMBAR caption` menjadwalkan posting gambar.
 - `/cancel ID` membatalkan draft.
+
+## Auto Posting Harian
+
+Bot bisa posting otomatis beberapa kali sehari jika variable ini diaktifkan di Railway:
+
+```env
+AUTO_DAILY_ENABLED=true
+AUTO_DAILY_TIMES=08:00,15:00,20:00
+```
+
+Slot default:
+
+- `08:00` konten pembuka/jadwal/topik bola hari ini.
+- `15:00` transfer, berita klub, atau opini singkat.
+- `20:00` big match, prediksi, atau pertanyaan diskusi.
+
+Bot membuat teks dengan AI. Untuk berita atau skor aktual, tetap sebaiknya dicek dulu sebelum diposting agar tidak keliru.
 
 ## Catatan Instalasi
 
@@ -89,8 +110,36 @@ OPENAI_API_KEY=isi_openai_api_key
 OPENAI_MODEL=gpt-4.1-mini
 DEFAULT_TIMEZONE=Asia/Bangkok
 AUTO_REPLY_ENABLED=true
+AUTO_DAILY_ENABLED=false
+AUTO_DAILY_TIMES=08:00,15:00,20:00
 DATABASE_PATH=data/agent.sqlite3
+X_ENABLED=false
+X_API_KEY=
+X_API_KEY_SECRET=
+X_ACCESS_TOKEN=
+X_ACCESS_TOKEN_SECRET=
 ```
+
+## Posting ke X
+
+Aktifkan variable berikut di Railway jika ingin bot bisa posting ke akun X:
+
+```env
+X_ENABLED=true
+X_API_KEY=consumer_key
+X_API_KEY_SECRET=consumer_secret
+X_ACCESS_TOKEN=access_token
+X_ACCESS_TOKEN_SECRET=access_token_secret
+```
+
+Perintah:
+
+```text
+/xpost teks untuk X saja
+/postall teks untuk Telegram dan X
+```
+
+Setelah draft dibuat, kirim `/approve ID`.
 
 6. Railway akan membaca `Procfile` dan menjalankan:
 
