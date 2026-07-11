@@ -6,6 +6,7 @@ import hmac
 import json
 import secrets
 import time
+from urllib.error import HTTPError
 from urllib import parse, request
 
 from .config import Settings
@@ -25,8 +26,12 @@ class XClient:
             "Content-Type": "application/json",
         }
         http_request = request.Request(self.url, data=payload, headers=headers, method="POST")
-        with request.urlopen(http_request, timeout=35) as response:
-            data = json.loads(response.read().decode("utf-8"))
+        try:
+            with request.urlopen(http_request, timeout=35) as response:
+                data = json.loads(response.read().decode("utf-8"))
+        except HTTPError as exc:
+            error_body = exc.read().decode("utf-8", errors="replace")
+            raise RuntimeError(f"X API error {exc.code}: {error_body}") from exc
         tweet_id = data.get("data", {}).get("id")
         return f"https://x.com/parisbolaku/status/{tweet_id}" if tweet_id else "Post terkirim ke X."
 
