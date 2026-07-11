@@ -25,6 +25,8 @@ class TelegramAgentBot:
         self.base_url = f"https://api.telegram.org/bot{settings.telegram_bot_token}"
         self.scheduler = PostScheduler(settings, database, ai_writer, self.send_channel_post)
         self.offset = 0
+        self.pending_drafts: dict[int, dict[str, str | None]] = {}
+        self.next_draft_id = 1
 
     async def send_channel_post(
         self, content: str, photo_url: str | None = None, destination: str = "telegram"
@@ -133,10 +135,17 @@ class TelegramAgentBot:
 
     async def _pending(self, chat_id: int) -> None:
         posts = self.database.list_pending()
+        memory_posts = [
+            f"#{post_id} [draft | {draft['destination']} | memory] {str(draft['content']).replace(chr(10), ' ')[:80]}"
+            for post_id, draft in sorted(self.pending_drafts.items(), reverse=True)
+        ]
         if not posts:
-            await self._send_message(chat_id, "Belum ada draft atau jadwal pending.")
+            if memory_posts:
+                await self._send_message(chat_id, "\n".join(memory_posts))
+            else:
+                await self._send_message(chat_id, "Belum ada draft atau jadwal pending.")
             return
-        lines = []
+        lines = memory_posts
         for post in posts:
             preview = post.content.replace("\n", " ")[:80]
             media = " | photo" if post.photo_url else ""
@@ -148,6 +157,20 @@ class TelegramAgentBot:
     async def _approve(self, chat_id: int, post_id: int | None) -> None:
         if post_id is None:
             await self._send_message(chat_id, "Masukkan ID draft. Contoh: /approve 3")
+            return
+        memory_post = self.pending_drafts.get(post_id)
+        if memory_post is not None:
+            try:
+                await self.send_channel_post(
+                    str(memory_post["content"]),
+                    memory_post.get("photo_url"),
+                    str(memory_post["destination"]),
+                )
+            except Exception as exc:
+                await self._send_message(chat_id, f"Gagal posting draft #{post_id}: {exc}")
+                return
+            del self.pending_drafts[post_id]
+            await self._send_message(chat_id, f"Draft #{post_id} sudah diposting.")
             return
         post = self.database.get_post(post_id)
         if post is None or post.status not in {"draft", "scheduled"}:
@@ -167,7 +190,11 @@ class TelegramAgentBot:
         if not content:
             await self._send_message(chat_id, "Tulis isi posting. Contoh: /post Halo Matchday AI aktif.")
             return
-        post_id = self.database.create_post(content, created_by=user_id, destination=destination)
+        post_id = self._store_memory_draft(content, None, destination)
+        try:
+            self.database.create_post(content, created_by=user_id, destination=destination)
+        except Exception as exc:
+            print(f"Database warning: {exc}")
         label = {"telegram": "Telegram", "x": "X", "all": "Telegram + X"}[destination]
         await self._send_message(chat_id, f"Draft #{post_id} dibuat untuk {label}. Kirim /approve {post_id}.")
 
@@ -184,7 +211,11 @@ class TelegramAgentBot:
         if not photo_url.startswith(("http://", "https://")):
             await self._send_message(chat_id, "URL gambar harus diawali http:// atau https://")
             return
-        post_id = self.database.create_post(caption, created_by=user_id, photo_url=photo_url)
+        post_id = self._store_memory_draft(caption, photo_url, "telegram")
+        try:
+            self.database.create_post(caption, created_by=user_id, photo_url=photo_url)
+        except Exception as exc:
+            print(f"Database warning: {exc}")
         await self._send_message(chat_id, f"Draft foto #{post_id} dibuat. Kirim /approve {post_id} untuk posting.")
 
     async def _schedule(self, chat_id: int, user_id: int | None, raw: str) -> None:
@@ -253,6 +284,16 @@ class TelegramAgentBot:
         if not data.get("ok"):
             raise RuntimeError(data)
         return data
+
+    def _store_memory_draft(self, content: str, photo_url: str | None, destination: str) -> int:
+        post_id = self.next_draft_id
+        self.next_draft_id += 1
+        self.pending_drafts[post_id] = {
+            "content": content,
+            "photo_url": photo_url,
+            "destination": destination,
+        }
+        return post_id
 
     @staticmethod
     def _command_args(text: str) -> str:
